@@ -31,6 +31,7 @@ from functools import update_wrapper
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseNotAllowed, Http404
 from django.views.decorators.csrf import csrf_exempt
+from spyne.util import _bytes_join
 
 try:
     from django.http import StreamingHttpResponse
@@ -46,6 +47,7 @@ from spyne.protocol.soap import Soap11
 from spyne.protocol.http import HttpRpc
 from spyne.server.http import HttpBase, HttpMethodContext
 from spyne.server.wsgi import WsgiApplication
+from spyne.util.six import PY3
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +90,7 @@ class DjangoApplication(WsgiApplication):
         return retval
 
     def set_response(self, retval, response):
-        retval.content = ''.join(response)
+        retval.content = _bytes_join(response, b"")
 
 
 class StreamingDjangoApplication(DjangoApplication):
@@ -174,6 +176,10 @@ class DjangoServer(HttpBase):
             doc = AllYourInterfaceDocuments(self.app.interface)
             doc.wsdl11.build_interface_document(request.build_absolute_uri())
             wsdl = doc.wsdl11.get_interface_document()
+
+            # Django in Python 3 seems to expect strings and not bytes
+            if PY3:
+                wsdl = wsdl.decode('utf8')
 
             if self._cache_wsdl:
                 self._wsdl = wsdl
